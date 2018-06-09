@@ -28,7 +28,7 @@
 ----------
 ### Pyng-Hub Best Practices ###
  - **Get the Pyng-Hub on the Internet and the Crestron Portal *before* you start configuring the client system.** This is very important because you cannot copy the DAT files directly from the Pyng-Hub file system as a restorable backup. Copying the files back to Pyng-Hub with File Manager is a roll of the dice situation that I have seen fail. The only effective way to backup the system config and prevent data loss is through the portal. I have seen **partial loss of recent system configuration changes due to issuing the reboot command from Toolbox Console**. Make it a habit to manually push the current configuration to the cloud *before* disconnecting power or rebooting.
- - **Put Pyng on a UPS**. I have seen various scenarios where a loss of power to the device resulted in full or partial loss of the system configuration. A full backup through Crestron's portal is the only effective way to recover and not lose time in rebuilding the system configuration.
+ - **Put all Pyng-Hub devices on a UPS**. I have seen various scenarios where a loss of power to the device resulted in full or partial loss of the system configuration. A full backup through Crestron's portal is the only effective way to recover and not lose time in rebuilding the system configuration.
  - **After making any system configuration changes to a Pyng-Hub, manually push a backup from the GUI.**
 
 
