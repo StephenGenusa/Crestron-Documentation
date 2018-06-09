@@ -6,5 +6,5 @@ The concept of the slot is just a way for the Crestron tools to manage the diffe
 
 Many of the current processors contain a slot 0 location which contains custom programming Crestron has created for the device. The application in slot 0 is booted first, to provide any services required to get the device operational, then slot 1 is booted, then slot 2 etc. 
 
-If you are familiar with how operating systems work, there is nothing special about how custom programs run. They all share CPU time and it is possible for bad programming to hog CPU time such as creating a program where signals get propagated in an endless loop. Jamming signals on two programs that share an EISC, for example, would bring the processor to its knees.
+If you are familiar with how operating systems work, there is nothing special about how custom programs run. The programs and application managers all share CPU time and it is possible for bad programming to hog CPU time such as creating a program where signals get propagated in an endless loop. Jamming signals on two programs that communicate via an EISC, for example, would bring the processor to its knees.
 
