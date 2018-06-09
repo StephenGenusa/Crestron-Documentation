@@ -29,7 +29,7 @@
 ### Security Best Practices and Notes ###
  - **Best practice is to run the Toolbox security audit tool** to determine what steps can be taken to tighten up security on Crestron processors. Crestron has added a device security audit tool which is a huge step in the right direction, so far as detailing what steps can be taken to help secure some devices. 
  - **The RS-485 protocol used over Cresnet is not secure** contrary to certain claims. Because of the way these networks are wired, tapping into a Cresnet network and either sniffing controls signals to profile a system or sending out spoofed control signals is trivial, if you have physical access to the wiring or the equipment.
- - Using either CIP via Cresnet or CIP via Ethernet it is easy to locate and spoof IP ID's and manipulate signals values without having any insider knowledge of the system. This means, the barrier into manipulating/controlling a control system is very low.
+ - Using either CIP via Cresnet or CIP via Ethernet it is easy to locate and spoof IP ID's and manipulate signal values without having any insider knowledge of the system. This means, the barrier into manipulating/controlling a control system is very low.
  - Even devices with SSH enabled are inherently insecure when a default user name of Crestron with no password is the default.
 
 ----------
