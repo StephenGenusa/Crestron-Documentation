@@ -26,6 +26,13 @@
  - Develop a network standards document to *segregate* device types on the subnet(s) involved. For example: first you would have routing devices, some empty ip slots, then network switches, again some empty IP slots, processors, empty IP slots, touchpanels, etc... with a DHCP range at the bottom of the subnet. This makes device location, troubleshooting and maintenance much easier (and is consistent with Cisco best practices).
 
 ----------
+### Security Best Practices and Notes ###
+ - **Best practice is to run the Toolbox security audit tool** to determine what steps can be taken to tighten up security on Crestron processors. Crestron has added a device security audit tool which is a huge step in the right direction, so far as detailing what steps can be taken to help secure some devices. 
+ - **The RS-485 protocol used over Cresnet is not secure** contrary to certain claims. Because of the way these networks are wired, tapping into a Cresnet network and either sniffing controls signals to profile a system or sending out spoofed control signals is trivial, if you have physical access to the wiring or the equipment.
+ - Using either CIP via Cresnet or CIP via Ethernet it is easy to locate and spoof IP ID's and manipulate signals values without having any insider knowledge of the system. This means, the barrier into manipulating/controlling a control system is very low.
+ - Even devices with SSH enabled are inherently insecure when a default user name of Crestron with no password is the default.
+
+----------
 ### Pyng-Hub Best Practices ###
  - **Get the Pyng-Hub on the Internet and the Crestron Portal *before* you start configuring the client system.** This is very important because you cannot copy the DAT files directly from the Pyng-Hub file system as a restorable backup. Copying the files back to Pyng-Hub with File Manager is a roll of the dice situation that I have seen fail. The only effective way to backup the system config and prevent data loss is through the portal. I have seen **partial loss of recent system configuration changes due to issuing the reboot command from Toolbox Console**. Make it a habit to manually push the current configuration to the cloud *before* disconnecting power or rebooting.
  - **Put all Pyng-Hub devices on a UPS**. I have seen various scenarios where a loss of power to the device resulted in full or partial loss of the system configuration. A full backup through Crestron's portal is the only effective way to recover and not lose time in rebuilding the system configuration.
