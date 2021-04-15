@@ -12,3 +12,4 @@ Corrections, additions and pull-requests are welcome.
 - [Program Slots on Programmable Crestron Devices](ProgramSlots.md)
 - [Operating Systems](OperatingSystems.md)
 - Crestron Applications/Tools Security and Expected Runtime Context
+- [CE Based System Internals](SysInternals.md)
