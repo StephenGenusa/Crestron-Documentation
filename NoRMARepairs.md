@@ -21,7 +21,7 @@ If you destroy your equipment by opening it, that's your responsibity and liabil
 - **My practice, and I highly recommend this: get the device up and running and then do either an upgrade or a forced upgrade using PUF with the latest firmware. Because there are device variations the base image file you have may be lacking software that would otherwise be installed during the PUF process**
 - The older the device the smaller the SDCARD. Not a problem. The partition setup will be identical since you are using DD. For example, say you have a device you need to get up the same day and the local big box store only has 32 GB cards in stock, but you have a bad 4 GB card. No problem. Just take a working 4 GB image and DD it to the 32 GB card. Yes, firmware updates work. The O/S will only see the normal 4 GB partitions and doesn't know the difference
 - Once the card is replaced, and the firmware updated, you can do a INIT, and then reload the DSP config or the proc's programs, and you are back in business
-- Having a library a DD file images for various devices is going to serve you well
+- Having a library of DD file images for various devices is going to serve you well
 
 ## Other Repairs: ##
 - Various equipment, especially procs are going to have onboard batteries to keep the system clock running. The Pac2M has a CR2320 battery underneath the proc board. You may want to replace this on some schedule for clients. If the device clock drops the correct date/time during a power outage you are going to know the battery is no longer providing sufficient voltage to the board to run the system clock
