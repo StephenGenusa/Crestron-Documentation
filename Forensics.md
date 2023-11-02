@@ -1,0 +1,7 @@
+Crestron devices may contain consequential details useful in forensic investigations of government, commercial and residential buildings. Logs may contain nothing useful, they may contain minor but useful details of facility occupancy and usage, or they may contain detailed logs useful to investigations.
+
+1) Device logs are stored on SDCARDS and SDCARDS constantly reuse "disk" space so unplugging Crestron devices of interest, especially *processors* should be your first priority. Touch Panels are also of use and should be unplugged. New touch panels are powered via PoE Ethernet, old touch panels were powered by Cresnet/24 volt.
+2) New device logs are created at each bootup and old device logs are archived and rotated and eventually deleted.
+3) SDCARDs are usually fairly easy to find in Crestron devices that contain them. You will have to remove case screws and possible a metal shield screwed over the top. Looking at the open device from various angles makes it easier to find.
+4) You can use any forensic imaging software to make an image of all the partitions. Older processors typically run WinCE and newer devices usually run some version of Android/Linux.
+5) It's somewhat helpful to have access to Crestron Toolbox (the Console and File Manager tools) and a test processor to look at a typical target file system -- as presented through the shell which translates a narrowly defined subset of acceptable commands into normal O/S commands and then displays the results in a simplistic form.
