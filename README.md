@@ -4,7 +4,7 @@ I am no longer involved in Crestron development. I studied Crestron, the company
 
 - New: [Avoiding RMAs by Making Local Repairs](NoRMARepairs.md)
 - New: [Device Operating Systems](DeviceOperatingSystems.md)
-- New: [Forensics and Crestron Devices](forensics.md)
+- New: [Forensics and Crestron Devices](Forensics.md)
 - [File Extensions](FileExtensions.md)
 - [3-Series Application Managers](3SAppManagers.md)
 - [Best Practices with Crestron](BestPractices.md)
