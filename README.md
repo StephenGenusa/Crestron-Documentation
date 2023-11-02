@@ -12,6 +12,5 @@ I am no longer involved in Crestron development. I studied Crestron, the company
 - Tips on Reading Device Logs
 - [Security on Crestron Devices](DeviceSecurity.md)
 - [Program Slots on Programmable Crestron Devices](ProgramSlots.md)
-- [Operating Systems](OperatingSystems.md)
 - Crestron Applications/Tools Security and Expected Runtime Context
 - [CE Based System Internals](SysInternals.md)

@@ -1,4 +1,11 @@
-I wrote a Python-based parser to determine device operating systems in 2017 by looking at firmware packages. The list is obviously not up to date but still may be of use:
+# Operating Systems #
+
+- The Series 3 processors currently run Windows CE 6 (MC3) or 7 (other Series 3 processors).
+- The previous generation of touch panels ran Windows CE. The new touch panels are running Android. This is why the Sonos app, for example, comes as an APK
+- The DSPs are running a version of Android
+
+
+In 2017 I wrote a Python-based parser that looks at firmware packages to determine device operating systems. The list is obviously not up to date but still may be of use:
 
 |Device|Operating System|
 |------------------------------------------|---------------------------|
