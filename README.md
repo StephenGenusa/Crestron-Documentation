@@ -9,7 +9,7 @@ I am no longer involved in Crestron development. I studied Crestron, the company
 - [File Extensions](FileExtensions.md)
 - [3-Series Application Managers](3SAppManagers.md)
 - [Best Practices with Crestron](BestPractices.md)
-- Tips on Reading Device Logs
+- [Tips on Reading Device Logs](Forensics.md#72-logs--the-primary-artifact)
 - [Security on Crestron Devices](DeviceSecurity.md)
 - [Program Slots on Programmable Crestron Devices](ProgramSlots.md)
 - Crestron Applications/Tools Security and Expected Runtime Context
