@@ -22,8 +22,9 @@ path, filename and command below was verified in one of two ways:
 - Read directly out of a physical acquisition of a real device, or
 - Read out of Crestron's own per-device console help.
 
-Numeric reason values in section 8.3 are reported as observed and should be
-confirmed against the exhibit's own firmware before they are relied on.
+Numeric reason values in section 8.3 are reported as observed on the exhibits
+examined. They are not authoritative: read the description the device itself prints
+alongside the number, and rely on that rather than on the table.
 
 Anything I could not confirm that way is tagged **[unverified]**. Treat those as
 leads to check on your own exhibit, not as findings.
@@ -216,9 +217,9 @@ you would any other exhibit. Hash before and after.
 
 **What you will find is not a normal disk.** On a verified MC3 acquisition:
 
-- **No MBR and no partition table.** Byte 0 of the image is `FE 00 00 EA`, an ARM
-  branch instruction — the image begins with a bootloader, not a partition table.
-  Tools that expect a partition table will report the image as unrecognized data.
+- **No MBR and no partition table.** Byte 0 of the image is `FE 00 00 EA` — boot
+  code, not a partition-table signature. The image begins with a bootloader, so
+  tools that expect a partition table will report it as unrecognized data.
 - The data volume began at **byte offset 103,285,760**, with the backup boot sector
   exactly 12 sectors later. *That offset is specific to this device and firmware —
   do not assume it. Find your own.*
@@ -289,12 +290,15 @@ What you can recover depends heavily on the platform:
 - **3-Series processors** run **Windows CE** (6 or 7 depending on model). This is
   the platform the verified material in this document comes from. Artifacts include
   a Windows CE registry, TexFAT volumes, and the `Sys\PLog` log structure below.
-- **4-Series processors** are a later generation and differ. **[unverified]** —
-  treat section 7 paths as leads, not findings, on 4-Series.
-- **Older touch panels** run Windows CE; **newer touch panels and DSPs run Android**,
-  which is why some panel software ships as an APK. Android panels should be
-  approached with normal Android forensic method, and may hold their own SQLite
-  databases, application data and browser artifacts. **[unverified]** in specifics.
+- **4-Series processors** run **Linux**, not Windows CE, and are laid out entirely
+  differently — a partitioned eMMC with ext3/ext4 volumes. Verified here from a CP4
+  acquisition. See section 7.8.
+- **Windows CE touch panels** (the TSW-x50 generation and similar) are verified
+  here from a TSW-750 acquisition. They share the processor's `Sys\PLog` structure
+  but add artifact classes of their own — see section 7.7.
+- **Newer touch panels and DSPs run Android**, which is why some panel software
+  ships as an APK. See section 7.9. **[unverified]** in specifics — no Android
+  device acquisition was examined.
 
 `DeviceOperatingSystems.md` in this repository has a per-model OS table. It is not
 current, but it is a good starting point for deciding what method to apply to a
@@ -406,6 +410,18 @@ The **IP table** is worth dwelling on. It enumerates the other devices this
 processor communicates with, which lets you reconstruct the control topology — and
 tells you what *else* to go seize.
 
+**Built-in accounts.** Crestron devices ship with vendor accounts that exist
+independently of any account the owner or integrator created. Two things follow for
+an investigation. First, **attribution**:
+access through a built-in vendor account in the audit log or console-connection log
+is not the owner and not the integrator — it is vendor-level access, and it should
+be read as such rather than attributed to site personnel. Second, **exposure**: the
+existence of standing vendor accounts is one of the reasons a control system should
+never have been reachable from an untrusted network, and their presence in the logs
+of a device that was internet-exposed is worth noting. This document does not publish
+the credentials for these accounts; their forensic relevance is that they exist and
+that activity under them is distinguishable from site activity.
+
 ### 7.5 The control program ###
 
 ```
@@ -442,6 +458,242 @@ integrator's job number, the client name and the site name. Filenames alone can
 identify the site, the integrator, and the project records worth subpoenaing —
 which is precisely why you image rather than copy files off a running device.
 
+### 7.7 Touch panel artifacts (Windows CE panels) ###
+
+Verified from a TSW-750 acquisition. Panels are the second seizure priority and
+carry artifact classes the processors do not.
+
+**Storage layout differs from a processor.** The panel carried **two** filesystems,
+not one: a FAT32 volume roughly 400 MiB in, which was effectively empty, and the
+main exFAT volume around the 1 GiB mark. The exFAT volume did **not** begin on a
+neatly aligned sector — it started one sector past the round number. Scan for the
+volume rather than assuming an offset, and do not stop after finding the first
+filesystem.
+
+**Logs — same structure, plus a much deeper archive:**
+
+```
+Sys/PLog/CurrentBoot/Crestron_00.log
+Sys/PLog/PreviousBoot/Crestron_00.log
+Sys/PLog/ZippedLogs/PLog_<date>_<time>.zip
+```
+
+The examined panel held **46 archived log bundles spanning more than four years**.
+On a panel, `ZippedLogs` may be the single richest source in the building. Panels
+also use additional log names not seen on the processor, including `MsgLog.txt` and
+`MsgLogPrev.txt` (current and previous message log) and `flashlog.txt`.
+
+**Crash dumps** — `Sys/DumpFiles/` and `Sys/ExtraDumpFiles/`, with no processor
+equivalent. Dumps can contain memory contents from the moment of failure.
+
+**Registry hives live somewhere else.** On the panel they are under
+`Windows/Registry/` (`system.hv`, `default/user.hv`, plus `Windows/Keys/*.mky`),
+not under `Documents and Settings/` as on the processor. Look in both places.
+
+**Web cache.** The panel carried a full Internet Explorer cache tree at
+`Windows/Profiles/guest/Temporary Internet Files/Content.IE5/`, including deleted
+cached documents. Panels fetch weather, scheduling and other feeds, so this can
+establish what the panel retrieved, from where, and when — and cached feed content
+may itself carry location information.
+
+**Flash local shared objects.** The Core3/SmartGraphics interface is Flash-based
+(`SmartGraphics.swf`, `container.swf`, `Scheduler.swf` and theme bundles under
+`ROMDISK/`). Consequently the panel keeps
+`Application Data/Macromedia/Flash Player/#SharedObjects/` — Flash LSOs, which can
+persist interface state, and `Adobe/Flash Player/AssetCache/`. This is a
+panel-specific artifact class worth checking; general Flash LSO forensic method
+applies.
+
+**The panel project.** `ROMDISK/user/Display/*.vtz` is the compiled panel project —
+the interface definition. It tells you what buttons existed, what they were
+labelled and what they were wired to, which is what makes panel-driven events
+interpretable. The examined panel had one in deleted state, alongside a deleted
+`Program Files/ProjectBackup` directory. Panels also run their own program slot
+(`Simpl/App00/`, with `ProgramInfo.config`).
+
+**Configuration.** `Core3config.ini` holds panel configuration. `Sys/hwConfig.ini`,
+`Sys/~.iptable0.dip`, `Sys/AuditLog/` and `Sys/AutoUpdate/` mirror the processor.
+The panel also carried both RSA **and** DSA SSH host keys under `Sys/SSH/`, and a
+deleted `sshd_config`.
+
+### 7.8 4-Series processors (Linux) ###
+
+Verified from a CP4 acquisition. The 4-Series is a different machine from the
+3-Series and almost nothing in section 7.1–7.6 transfers. It is an ARM Linux system
+(a BusyBox userland on a Linux `armhf` kernel), so treat it as a Linux exhibit and
+use ordinary Linux forensic tooling throughout.
+
+**Storage is a partitioned card with a normal MBR**, unlike the 3-Series raw NAND
+dump. Boot media on the examined device was an 8 GB microSD. The layout is roughly a
+dozen partitions, ext3/ext4, and it is deliberately **mirrored**: paired boot
+volumes (`sys1` and its mirror `sys`) and paired root volumes (`rootfs` and its
+mirror `rootfs1`), then `sdcard`, `data`, `var`, `varlog` and `persist`. The
+mirroring means **two system images are on the device, one of them the previous
+version** — worth diffing, because it can show what changed and when. Note that
+Crestron content lives on the *second* of each mirrored pair on the running system
+(`rootfs1`), so check both members rather than assuming the first is authoritative.
+
+**Logs have their own partition**, `varlog`, mounted at `/logs`:
+
+```
+/logs/CurrentBoot/Crestron_00.log
+/logs/PreviousBoot/Crestron_00.log
+/logs/ZippedLogs/plog_<date>_<time>.tar.gz
+/logs/MsgLog.txt
+/logs/reboot_pid.log
+/logs/sdcardWriteCounter.log
+/logs/diskFullnessAtReboot.log
+/logs/deviceTable.txt
+/logs/ramdiskLogs/
+```
+
+The `CurrentBoot` / `PreviousBoot` / `ZippedLogs` pattern carries over from the
+3-Series, but archives are `.tar.gz` and lowercase `plog_`. The examined device held
+**37 archives across five months.**
+
+Three of these have no 3-Series equivalent and are worth going straight to:
+
+- **`reboot_pid.log`** — records the process associated with a restart. This is the
+  most useful single addition in the 4-Series: it attacks the attribution problem in
+  section 8.3 directly, potentially naming what initiated a reboot rather than
+  leaving you with "software-initiated."
+- **`sdcardWriteCounter.log`** — a running flash write count. Bears on how hard the
+  device has been overwriting itself, and on storage-wear questions.
+- **`diskFullnessAtReboot.log`** — storage pressure at restart, which bears on how
+  aggressively logs were being discarded.
+
+**`ramdiskLogs/` was empty on the acquired image, and that is expected** — the name
+and the device's mount configuration indicate RAM backing, so anything buffered
+there is lost on power-down. This does not change the
+advice in section 1: the flash-resident history is vastly larger, and a ramdisk
+buffer is lost on any restart anyway. But if you are doing live collection under
+section 5.3, capture before you power down.
+
+**Other partitions:**
+
+| Path | Contains |
+|---|---|
+| `/data/crestron/registry/HKEY_LOCAL_MACHINE/Crestron/System/` | The registry survives as a **directory tree**, not a hive file — browsable directly |
+| `/data/crestron/config/rc.conf` | Device configuration |
+| `/data/crestron/config/errLogServer.conf` | Error-log server settings — check for off-box log forwarding (section 9) |
+| `/data/crestron/hostname` | Device hostname, often site-derived |
+| `/data/Authen/`, `/data/ssh/` | Authentication and SSH state |
+| `/data/coredump/` | Crash dumps |
+| `/data/datastore.bin`, `/data/crestdata.tab` | Data stores |
+| `/data/timezone`, `/data/localtime` | **Time configuration — read this before interpreting any timestamp** |
+| `/data2` (`persist`) | Persistent data surviving updates |
+| `/mnt/sdcard/crestron/program01` … `program10` | The ten program slots |
+| `/mnt/sdcard/ROMDISK/` | Firmware packages, certificates, update logs and archives |
+| `/mnt/sdcard/webtmp/` | **Web-server upload temporaries** — program and firmware uploads traverse the web interface and leave recoverable remnants here |
+| `/var/log/` | Standard Linux logs |
+
+The examined `sdcard` volume had **237 deleted entries out of 417** — including all
+ten program-slot directories — so carving is likely to be productive on 4-Series.
+
+**The 4-Series keeps a Redis key-value store, and it is a primary artifact.**
+`/data/cresstore/` holds a Redis database dump (`dump_<n>.rdb`) that stores registry
+settings, certificate material and configuration URLs as key-value pairs. It is a
+plain on-disk database file: load it into any Redis-compatible reader, or carve
+strings from it directly, and search it for `http`/`https` URLs. Two things in
+particular live here — the certificates the device trusts, and the update-catalog
+URL the auto-updater fetches (see below) — so this single file can establish what
+the device trusted and where it phoned for updates. The registry is *also* browsable
+as a directory tree under
+`/data/crestron/registry/HKEY_LOCAL_MACHINE/Crestron/System/`; the Redis store and
+the tree overlap, so check both.
+
+**Startup and service configuration is readable as text.** The device is
+systemd-based, and the unit files under `/lib/systemd/system/` (on the root volume)
+enumerate the Crestron daemons by function — among them an **audit-log service**, an
+**error-log server** (its config is the `errLogServer.conf` named above), an
+**IP-blocker service** (a blocklist records addresses blocked after failed logins),
+an **account-management service**, an **NVRAM service**, the **console listener**
+(`ctpd`) and the **auto-updater**. Reading these units tells you which logging and
+security services *should* have been running, which is a useful cross-check against
+what you actually recovered — a service whose logs are absent is worth a question.
+
+**Auto-update leaves a trail.** The Redis store holds an update-catalog URL, and
+`/mnt/sdcard/ROMDISK/` plus the update logs hold the update plugins and artifacts.
+Together they evidence the device's firmware history and its network update source —
+corroborate
+against the network logs in section 9.
+
+**Built-in accounts on 4-Series.** The Linux password file names Crestron service
+accounts (a `crestron` account and a `userprogs` account); on the examined device
+their `shadow` entries were empty or disabled, meaning those accounts are not
+password-authenticated in the ordinary sense — access is gated by other means. As in
+section 7.4, treat the possibility of standing vendor accounts as live on 4-Series
+too: the forensic point is that such accounts exist and that activity under them is
+vendor-level, distinguishable from site activity. This document does not publish
+account names or credentials.
+
+The web-server upload temporaries deserve particular attention: dozens were present
+in deleted state. Because program loads and firmware pushes traverse the web
+interface, these can evidence *what was loaded and when*, even where the loaded
+artifact is gone.
+
+**Partition timestamps disagreed usefully** on the examined device: most volumes
+last written on one date, the `persist` volume six months later. Volume-level mount
+and write times are worth recording per partition rather than treating the device as
+having a single "last used" time.
+
+### 7.9 Android-based devices (newer panels and DSPs) ###
+
+**[unverified] throughout.** No Android device acquisition was examined for this
+document. This section says what to expect and which method to apply. Treat all of
+it as leads to confirm on your own exhibit.
+
+The newer touch panels and the DSPs run Android — which is why some Crestron panel
+software ships as an APK, and why `DeviceOperatingSystems.md` lists Android 4.x and
+5.x against those models. The practical consequence is the important part:
+
+**Expect these to behave as ordinary Android devices wearing a Crestron badge** —
+vendor applications on top of a stock platform. If that holds on your exhibit,
+**your normal Android forensic method applies end to end** — the same tooling, the
+same artifact locations, the same interpretation. Confirm the platform build on the
+device before committing to that approach, but do not assume you are facing an
+exotic embedded target requiring special technique — treat it as an Android handset
+that happens to be screwed to a wall.
+
+**Artifact classes worth pulling**, in rough order of investigative value:
+
+| Artifact | Why |
+|---|---|
+| **Bluetooth pairing records** | Device names of phones that paired with the unit. See the note below — this is the significant one |
+| Per-application databases under the standard app-data paths | Vendor applications store state here, alongside everything else |
+| Wi-Fi configuration and known-network history | Places the device, and sometimes places other devices |
+| Browser history and cache | Panels fetch feeds and may host a browser |
+| Download and media providers | Ordinary Android artifacts on a device nobody thinks to seize |
+| Calendar and contacts providers | Present in the platform; may be populated on scheduling panels |
+| Crash traces and tombstones | Fault history, and memory contents at failure |
+| Account records | What services the device was signed in to |
+
+**Bluetooth pairings are a genuine exception to section 8.5.** Elsewhere this
+document is emphatic that a control system tells you a command was issued, not who
+issued it, and that occupancy sensing detects presence rather than identity. An
+Android device that pairs with phones is different: pairing records carry
+user-assigned device names, which are frequently a person's name. That is
+identity-adjacent evidence of a specific handset having been in Bluetooth range.
+Corroborate it — a pairing record is not proof a person was present at a given
+moment, and names are trivially editable — but do not overlook it, and do not repeat
+the "these systems cannot identify people" line without checking.
+
+**DSPs deserve separate thought.** The DSP is the device in the audio path. If any
+part of the system touches microphones, conferencing or recording, the wiretap and
+eavesdropping considerations in section 11 apply with full force, and they are
+materially different from the rules governing stored records. Establish the legal
+position before collection, not after. A DSP may also carry evidence of call and
+conference activity — when audio paths were active, and between which endpoints —
+which is often the question actually being asked.
+
+**Acquisition notes.** These are embedded devices, so the usual Android acquisition
+route may not be open: developer options and USB debugging are typically not
+enabled, there may be no accessible recovery, and physical acquisition of the eMMC
+may be the only path. Establish the device's encryption state early, because it
+determines whether a physical acquisition yields anything readable. Where the device
+can be treated as a normal Android target, prefer that; where it cannot, fall back
+to the physical methods in section 5.2.
+
 ---
 
 ## 8. Interpreting the evidence ##
@@ -473,6 +725,11 @@ device thought time was and why.
   part. A dead or failing battery means a wrong or reset clock. This repository's
   `BatteryReplacements.md` lists the battery by device — relevant here because a
   device that has been in service a decade may well have a dead cell.
+  This is not theoretical. The examined TSW-750 held ten archived log bundles
+  stamped `2006-01-01 12:00:3x`, seconds apart — a device booting repeatedly with
+  no valid clock and falling back to a default date, years before the surrounding
+  archives. **Timestamps clustered on an implausible date seconds apart are a
+  dead-clock signature, not evidence of activity on that date.**
 - **`SNTP`** may or may not be configured. If it is, timestamps are as good as the
   time source and the network. If not, drift accumulates freely.
 - **`TIMEZONE` and `TIMEDATE`** are per-device settings. Two processors in one
@@ -491,49 +748,45 @@ A restart is one of the most common events you will see, and one of the most
 frequently overread.
 
 The device stores a **reboot reason code in NVRAM**, retrievable with
-`NVRAMREBOOT SHOW`.
+`NVRAMREBOOT SHOW`, but the number alone is not a finding. On 3-Series equipment the command prints the value
+together with a short description, so **read the device's own printed text and
+record both** — the raw value and the description, verbatim.
 
-**Caution: a bare number is not self-interpreting.** The same value can carry a
-different meaning depending on the firmware generation and on which part of the
-system recorded it. Record the raw value *and* whatever text the device itself
-prints, and confirm the meaning on the exhibit before relying on it.
+The values below were seen in the course of examination. They are a starting point
+for recognizing what you find, nothing more: the correspondence is not guaranteed
+across models or firmware generations, and the list is certainly incomplete.
 
-Values observed on 3-Series equipment:
-
-| Value | Corresponds to | Reading |
+| Value | Text the device printed | Reading |
 |---|---|---|
-| 0 | Power cycle | **Plug pulled, outage, or PDU** |
-| 1 | Image/firmware update | Firmware update |
-| 2 | Application hung | Watchdog — software fault, not a person |
-| 3 | Soft reset | Commanded soft reset |
-| 4 | Restore defaults | **Configuration destroyed** |
-| 5 | Initialize | Initialize |
-| 7 | Nightly restore defaults | Scheduled defaults restore |
-| 8 | I/O processor mismatch | Subsystem fault |
-| 9 | I/O processor interface abort | Subsystem fault — but see below |
-| 10 | Updater-driven restart | Update process |
-| 11 | Updater, console-initiated | Update process |
-| 40970 | Format | **Destructive — device formatted** |
+| 0 | power cycle | Plug pulled, outage, or PDU |
+| 2 | application hung | Watchdog — software fault, not a person |
+| 3 | soft reset | Commanded soft reset |
+| 4 | restore defaults | **Configuration destroyed** |
 
-Values in the high tens of thousands also occur and correspond to conditions
-recorded by other parts of the system, including unknown or indeterminate causes.
+Other values occur, including large values in the tens of thousands, and small
+values can be ambiguous — the same integer may be reported in different
+circumstances, and the meaning can shift by model and firmware. **Do not interpret a
+bare number.** Record the raw value and the device's printed description; if the
+device prints no description for the value you recover, report it as an uninterpreted
+raw value rather than mapping it from another exhibit.
 
-**Low values are the trap.** At least one small value is used for an unrelated
-purpose elsewhere in the system, so a stored `9` is not automatically an I/O
-processor abort. Confirm any low value against the device before drawing a
-conclusion from it.
-
-Because a power cycle has its own explicit code, you can distinguish a pulled plug
-from a commanded restart from a watchdog fault, rather than guessing from absence.
+The one distinction worth holding onto is that a **power cycle reports differently
+from a commanded restart** — which lets you separate a pulled plug from a deliberate
+reboot rather than guessing from absence.
 
 Now the pitfalls:
 
 **A `User Reboot` line does not mean a user was present.** It means the restart was
 software-initiated rather than a power event. That can be a technician typing
-`REBOOT` at a console, a program restarting the system, or — importantly — a
-Crestron service or the cloud-enrolment feature triggering a restart with no
-operator present. A software-initiated restart is logged the same way regardless
-of what initiated it, so no console connection is required for one to appear.
+`REBOOT` at a console, a program restarting the system, or a remote/cloud-initiated
+restart with no operator present. On the exhibits examined, `User Reboot` lines
+appeared with no corresponding console connection logged, so the line does not by
+itself indicate that anyone was connected.
+
+**On 4-Series, check `/logs/reboot_pid.log` before concluding anything.** It
+records the process associated with the restart, which may let you name what
+initiated it rather than stopping at "software-initiated." The 3-Series has no
+equivalent.
 
 **Therefore: absence of a console connection before a reboot proves nothing.** Do
 not reason "no CTP connection is logged, so nobody did this." Check the reason code
@@ -587,6 +840,8 @@ What you generally **cannot** show from the device alone:
   issued, not the outcome.
 - **Who was in the room.** Occupancy sensing detects motion or presence, not
   identity, and is easily triggered by cleaning staff, pets or HVAC airflow.
+  *Partial exception:* Android-based panels and DSPs may hold Bluetooth pairing
+  records naming specific handsets — see section 7.9.
 - **That nothing happened.** Absence of a log entry is weak evidence. Logging depends
   on how the site was programmed, audit logging is off by default, and rotation
   destroys history routinely.
@@ -603,11 +858,15 @@ Assume the device is one of several records, and often not the most complete.
   log, to an external server. If it was configured, **a copy of the evidence may
   exist off-box and beyond the reach of anyone who wiped the device.** Check
   `Sys/` configuration and the device's syslog settings early.
-- **Cloud enrolment.** `Sys/MyCrestron Configuration.txt` records cloud service
-  enrolment, and an enrolled device registers with Crestron's service. Where a
-  device is enrolled, the provider may hold connection history,
-  update history and remote-command records — obtainable by legal process, and
-  potentially surviving the device's own destruction.
+- **Cloud enrolment and telemetry.** `Sys/MyCrestron Configuration.txt` records
+  cloud service enrolment. Beyond enrolment, 3-Series processors periodically beacon
+  to Crestron cloud hosts — pushing system and program details, and querying for the
+  site's current public IP address. That activity is visible in network logs, DNS
+  query records and firewall/NetFlow data even when nothing was captured on the
+  device itself, so a site's own network infrastructure may show the device phoning
+  home on a schedule. Where a device is enrolled, the provider may also hold
+  connection history, update history and remote-command records — obtainable by
+  legal process, and potentially surviving the device's own destruction.
 - **Third-party monitoring.** Many integrators run their own or third-party
   monitoring platforms with their own logs and their own remote-control ability.
   The site labels and project filenames tell you which integrator to ask.
@@ -629,8 +888,8 @@ Both deliberate and routine. Watch for:
 | Mechanism | Signature |
 |---|---|
 | `CLEARAUDITLOG` | Audit log empty or starting abruptly; gap against other sources |
-| `RESTORE` / factory defaults | Reason value indicating restore-to-defaults (4) |
-| Format | Reason value indicating a format (40970) |
+| `RESTORE` / factory defaults | Reboot reason describing a restore-to-defaults |
+| Format | Reboot reason describing a format |
 | Firmware reflash | `AutoUpdateLogs/`, `pufversion.ini`, a firmware change in the boot lines |
 | Reducing log retention | `LOGGERNUMBACKUPLOGS` set unusually low |
 | Disabling audit logging | `AUDITLOGGING OFF` |
@@ -745,6 +1004,51 @@ an observation of the physical world.
 | `Documents and Settings/System.hv`, `default/user.hv` | Windows CE registry hives |
 | `Recycled/`, `User/`, `FTP/`, `Temp/` | User-writable and deleted-item areas |
 
+### Paths (Windows CE touch panels, verified on TSW-750) ###
+
+Panel differences from the processor layout above:
+
+| Path | Contains |
+|---|---|
+| `Sys/PLog/ZippedLogs/` | Archived logs — on the examined panel, 4+ years of them |
+| `MsgLog.txt` / `MsgLogPrev.txt` | Panel message log, current and previous |
+| `Sys/DumpFiles/`, `Sys/ExtraDumpFiles/` | Crash dumps (no processor equivalent) |
+| `Windows/Registry/system.hv`, `default/user.hv` | Registry hives — **different location** from the processor |
+| `Windows/Profiles/guest/Temporary Internet Files/Content.IE5/` | Web cache, incl. deleted cached feeds |
+| `Application Data/Macromedia/Flash Player/#SharedObjects/` | Flash local shared objects |
+| `Application Data/Adobe/Flash Player/AssetCache/` | Flash asset cache |
+| `Application Data/Macromedia/Flash Player/Logs/flashlog.txt` | Flash log |
+| `ROMDISK/user/Display/*.vtz` | Compiled panel project — the interface definition |
+| `Core3config.ini` | Panel configuration |
+| `Sys/SSH/` | RSA **and** DSA host keys on panels |
+
+Storage note: the examined panel had **two** filesystems — a near-empty FAT32
+volume and the main exFAT volume, the latter starting one sector past a round
+offset. Scan for volumes; do not assume one, and do not assume alignment.
+
+### Paths (4-Series, Linux — verified on CP4) ###
+
+| Path | Contains |
+|---|---|
+| `/logs/CurrentBoot/`, `/logs/PreviousBoot/` | Session message logs |
+| `/logs/ZippedLogs/plog_<date>_<time>.tar.gz` | Archived logs |
+| `/logs/reboot_pid.log` | **Process associated with a restart** |
+| `/logs/sdcardWriteCounter.log`, `/logs/diskFullnessAtReboot.log` | Flash wear, storage pressure |
+| `/logs/ramdiskLogs/` | RAM-backed — lost on power-down |
+| `/data/cresstore/dump_<n>.rdb` | Redis key-value store — registry, certificates, config/update URLs |
+| `/data/crestron/registry/HKEY_LOCAL_MACHINE/Crestron/System/` | Registry as a directory tree (overlaps the Redis store) |
+| `/lib/systemd/system/` | systemd units — enumerates Crestron logging/security daemons |
+| `/data/crestron/config/rc.conf`, `errLogServer.conf` | Config, off-box log forwarding |
+| `/data/timezone`, `/data/localtime` | Time configuration |
+| `/data/coredump/`, `/data/Authen/`, `/data/ssh/` | Dumps, auth, SSH state |
+| `/mnt/sdcard/crestron/program01`…`program10` | Program slots |
+| `/mnt/sdcard/webtmp/` | lighttpd upload remnants |
+| `/mnt/sdcard/ROMDISK/` | Firmware, certs, update logs |
+| `/var/log/` | Standard Linux logs |
+
+Storage note: partitioned eMMC with an MBR, ext3/ext4, paired A/B boot and root
+volumes — the previous system image is still on the device.
+
 ### Network ###
 
 | Item | Value |
@@ -758,8 +1062,9 @@ an observation of the physical world.
 
 ## Corrections and contributions ##
 
-This document is grounded in analysis of 3-Series Windows CE hardware. Coverage of
-4-Series, Android touch panels and DSPs is thinner and marked `[unverified]` where
-it is inference rather than observation. Corrections, additions and pull requests
+This document is grounded in device acquisitions: an MC3 processor and a TSW-750
+touch panel (3-Series, Windows CE), and a CP4 processor (4-Series, Linux). Coverage
+of Android-based panels and DSPs is thinner and marked `[unverified]` where it is
+inference rather than observation. Corrections, additions and pull requests
 are welcome — particularly verified artifact paths from platforms other than the
 ones examined here.
